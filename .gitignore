@@ -1,1 +1,19 @@
-/venv
+# Ambiente virtual
+.venv/
+venv/
+
+# Variáveis de ambiente
+.env
+
+# ChromaDB (vector store)
+chroma_db/
+*.sqlite3
+*.bin
+
+# Python cache
+__pycache__/
+*.pyc
+
+# OS / Editor
+.DS_Store
+.vscode/

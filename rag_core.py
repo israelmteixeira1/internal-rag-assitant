@@ -1,49 +1,70 @@
 from dotenv import load_dotenv
 import os
+import re
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_chroma import Chroma
-from langchain.chains import RetrievalQA
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
 
 load_dotenv()
 
-def index_pdf(pdf_path: str):
-    loader = PyPDFLoader(pdf_path)
-    documents = loader.load()
+def normalize_text(text:str)->str:
+    text=re.sub(r'\s+',' ',text)
+    text=text.replace(' .','.').replace(' ,',',')
+    return text.strip()
 
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    split_texts = text_splitter.split_documents(documents)
+def index_pdf(pdf_path:str):
+    loader=PyPDFLoader(pdf_path)
+    documents=loader.load()
+    for doc in documents:
+        doc.page_content=normalize_text(doc.page_content)
+    text_splitter=RecursiveCharacterTextSplitter(chunk_size=1000,chunk_overlap=200)
+    split_texts=text_splitter.split_documents(documents)
+    embeddings=GoogleGenerativeAIEmbeddings(model="text-embedding-004")
+    db=Chroma.from_documents(split_texts,embeddings,persist_directory="./chroma_db",collection_name="internal_procedures")
 
-    embeddings = GoogleGenerativeAIEmbeddings(model="text-embedding-004")
-    db = Chroma.from_documents(split_texts, embeddings, persist_directory="./chroma_db", collection_name="internal_procedures")
+def query_rag(question:str)->str:
+    embeddings=GoogleGenerativeAIEmbeddings(model="text-embedding-004")
+    db=Chroma(persist_directory="./chroma_db",collection_name="internal_procedures",embedding_function=embeddings)
+    retriever=db.as_retriever(search_kwargs={"k":4})
+    docs=retriever.invoke(question)
+    # print("\n=== DOCUMENTOS RECUPERADOS ===\n")
+    # for i,doc in enumerate(docs):
+    #     print(f"--- Chunk {i+1} ---")
+    #     print(doc.page_content[:500])
+    #     print("\nMETADATA:",doc.metadata)
+    #     print("\n-----------------------------\n")
+    llm=ChatGoogleGenerativeAI(model="gemini-2.5-flash",temperature=0.2)
+    prompt=ChatPromptTemplate.from_template("""
+You are an internal support assistant.
 
-    db.persist()
+Answer the question ONLY using the information provided in the context.
+If the answer is not present in the context, say:
+"Não encontrei essa informação nos procedimentos internos."
 
-def query_rag(question: str) -> str:
-    db = Chroma(persist_directory="./chroma_db", collection_name="internal_procedures")
-    retriever = db.as_retriever(search_kwargs={"k": 4})
+Context:
+{context}
 
-    qa = RetrievalQA.from_chain_type(
-        llm=ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2),
-        chain_type="stuff",
-        retriever=retriever
+Question:
+{question}
+""")
+    rag_chain=(
+        {
+            "context":retriever|format_docs,
+            "question":RunnablePassthrough()
+        }
+        |prompt
+        |llm
     )
+    response=rag_chain.invoke(question)
+    return response.content
 
-    response = qa({"query": question})
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
 
-    if response['result']:
-        return response['result']
-    else:
-        return "I couldn't find this information in the internal procedures."
-
-if __name__ == "__main__":
-    # Create a small dummy PDF called "procedures.pdf"
-    # containing at least 5 paragraphs simulating internal procedures
+if __name__=="__main__":
     index_pdf("procedures.pdf")
-    
-    # Run a test by calling:
-    result = query_rag("What is the step-by-step process to restart the system?")
-    
-    # Print the result in the terminal.
+    result=query_rag("Como abrir um chamado crítico?")
     print(result)
