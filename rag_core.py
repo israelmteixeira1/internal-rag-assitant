@@ -21,6 +21,10 @@ logging.basicConfig(
 logger = logging.getLogger("rag_pipeline")
 load_dotenv()
 
+embeddings: Optional[GoogleGenerativeAIEmbeddings] = None
+db: Optional[Chroma] = None
+llm: Optional[ChatGoogleGenerativeAI] = None
+
 def normalize_text(text: str) -> str:
     try:
         text = re.sub(r'\s+', ' ', text)
@@ -30,7 +34,8 @@ def normalize_text(text: str) -> str:
         logger.exception("Erro ao normalizar texto")
         return text
 
-def index_pdf(pdf_path: str) -> bool:
+def index_pdf(pdf_path: str, embeddings_instance: GoogleGenerativeAIEmbeddings) -> bool:
+    global db
     logger.info("Iniciando indexação do PDF: %s", pdf_path)
 
     if not os.path.exists(pdf_path):
@@ -64,17 +69,12 @@ def index_pdf(pdf_path: str) -> bool:
         return False
 
     try:
-        embeddings = GoogleGenerativeAIEmbeddings(
-            model="text-embedding-004"
-        )
-
-        Chroma.from_documents(
+        db = Chroma.from_documents(
             split_texts,
-            embeddings,
+            embeddings_instance,
             persist_directory="./chroma_db",
             collection_name="internal_procedures"
         )
-
         logger.info("Indexação concluída com sucesso")
         return True
     except Exception:
@@ -95,19 +95,9 @@ def query_rag(question: str) -> Optional[str]:
         logger.warning("Pergunta vazia ou inválida")
         return "Pergunta vazia ou inválida."
 
-    try:
-        embeddings = GoogleGenerativeAIEmbeddings(
-            model="text-embedding-004"
-        )
-
-        db = Chroma(
-            persist_directory="./chroma_db",
-            collection_name="internal_procedures",
-            embedding_function=embeddings
-        )
-    except Exception:
-        logger.exception("Erro ao carregar base vetorial")
-        return "Erro ao carregar a base de conhecimento interna."
+    if db is None or llm is None:
+        logger.error("Serviços RAG (DB/LLM) não inicializados. Encerrando.")
+        return "Erro interno: Serviço de conhecimento não inicializado."
 
     try:
         retriever = db.as_retriever(search_kwargs={"k": 4})
@@ -117,14 +107,6 @@ def query_rag(question: str) -> Optional[str]:
         logger.exception("Erro ao recuperar documentos")
         return "Erro ao recuperar documentos dos procedimentos internos."
 
-    try:
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
-            temperature=0.2
-        )
-    except Exception:
-        logger.exception("Erro ao inicializar LLM")
-        return "Erro ao inicializar o modelo de linguagem."
 
     prompt = ChatPromptTemplate.from_template("""
 You are an internal support assistant.
@@ -158,7 +140,30 @@ Question:
         return "Ocorreu um erro ao gerar a resposta com base nos procedimentos internos."
 
 if __name__ == "__main__":
-    ok = index_pdf("procedures.pdf")
+    try:
+        embeddings = GoogleGenerativeAIEmbeddings(model="text-embedding-004")
+        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
+        logger.info("Embeddings e LLM inicializados.")
+    except Exception:
+        logger.critical("Falha ao inicializar Embeddings ou LLM. Verifique as credenciais.")
+        exit(1)
+
+    chroma_db_dir = "./chroma_db"
+    if os.path.isdir(chroma_db_dir):
+        try:
+            db = Chroma(
+                persist_directory=chroma_db_dir,
+                collection_name="internal_procedures",
+                embedding_function=embeddings
+            )
+            logger.info("Base Chroma carregada do disco com sucesso.")
+            ok = True
+        except Exception:
+            logger.warning("Erro ao carregar base Chroma. Tentando reindexar...")
+            ok = index_pdf("procedures.pdf", embeddings)
+    else:
+        ok = index_pdf("procedures.pdf", embeddings)
+
     if not ok:
         logger.critical("Falha crítica durante indexação. Encerrando aplicação.")
         print("Erro ao indexar procedimentos internos. Verifique os logs.")
