@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import os
 import re
 import logging
+import unicodedata
 from typing import List, Optional
 
 from langchain_community.document_loaders import PyPDFLoader
@@ -27,7 +28,7 @@ llm: Optional[ChatGoogleGenerativeAI] = None
 
 def normalize_text(text: str) -> str:
     try:
-        text = re.sub(r'\s+', ' ', text)
+        text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('utf-8')
         text = text.replace(' .', '.').replace(' ,', ',')
         return text.strip()
     except Exception:
