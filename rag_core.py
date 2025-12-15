@@ -20,7 +20,7 @@ def index_pdf(pdf_path:str):
     documents=loader.load()
     for doc in documents:
         doc.page_content=normalize_text(doc.page_content)
-    text_splitter=RecursiveCharacterTextSplitter(chunk_size=1000,chunk_overlap=200)
+    text_splitter=RecursiveCharacterTextSplitter(chunk_size=1000,chunk_overlap=100)
     split_texts=text_splitter.split_documents(documents)
     embeddings=GoogleGenerativeAIEmbeddings(model="text-embedding-004")
     db=Chroma.from_documents(split_texts,embeddings,persist_directory="./chroma_db",collection_name="internal_procedures")
@@ -30,12 +30,12 @@ def query_rag(question:str)->str:
     db=Chroma(persist_directory="./chroma_db",collection_name="internal_procedures",embedding_function=embeddings)
     retriever=db.as_retriever(search_kwargs={"k":4})
     docs=retriever.invoke(question)
-    # print("\n=== DOCUMENTOS RECUPERADOS ===\n")
-    # for i,doc in enumerate(docs):
-    #     print(f"--- Chunk {i+1} ---")
-    #     print(doc.page_content[:500])
-    #     print("\nMETADATA:",doc.metadata)
-    #     print("\n-----------------------------\n")
+    print("\n=== DOCUMENTOS RECUPERADOS ===\n")
+    for i,doc in enumerate(docs):
+        print(f"--- Chunk {i+1} ---")
+        print(doc.page_content[:500])
+        print("\nMETADATA:",doc.metadata)
+        print("\n-----------------------------\n")
     llm=ChatGoogleGenerativeAI(model="gemini-2.5-flash",temperature=0.2)
     prompt=ChatPromptTemplate.from_template("""
 You are an internal support assistant.
@@ -66,5 +66,16 @@ def format_docs(docs):
 
 if __name__=="__main__":
     index_pdf("procedures.pdf")
-    result=query_rag("Como abrir um chamado crítico?")
-    print(result)
+    pergunta_teste = input("\nDigite a sua pergunta sobre os procedimentos internos (ou digite 'sair' para terminar): \n> ")
+
+    if pergunta_teste.lower() != 'sair':
+        print("\nProcessando...")
+        
+        # Consulta RAG com a pergunta inserida pelo usuário
+        resultado = query_rag(pergunta_teste)
+        
+        print("\n--- RESPOSTA RAG ---")
+        print(resultado)
+        print("--------------------\n")
+    else:
+        print("Programa encerrado.")
