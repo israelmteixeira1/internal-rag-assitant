@@ -28,8 +28,12 @@ llm: Optional[ChatGoogleGenerativeAI] = None
 
 def normalize_text(text: str) -> str:
     try:
-        text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('utf-8')
+        text = re.sub(r'\n{2,}', '\n\n', text)
+        text = re.sub(r'(?<!\n)\n(?!\n)', ' ', text)
+        text = re.sub(r'(\d+)\s+\.', r'\1.', text)
         text = text.replace(' .', '.').replace(' ,', ',')
+        text = re.sub(r'[ \t]+', ' ', text)
+
         return text.strip()
     except Exception:
         logger.exception("Erro ao normalizar texto")
@@ -101,7 +105,10 @@ def query_rag(question: str) -> Optional[str]:
         return "Erro interno: Serviço de conhecimento não inicializado."
 
     try:
-        retriever = db.as_retriever(search_kwargs={"k": 4})
+        retriever = db.as_retriever(    
+              search_type="similarity",
+              search_kwargs={"k": 8}
+        )
         docs = retriever.invoke(question)
         logger.info("Recuperados %d chunks relevantes", len(docs))
     except Exception:
@@ -124,16 +131,28 @@ Question:
 """)
 
     try:
-        rag_chain = (
-            {
-                "context": retriever | format_docs,
-                "question": RunnablePassthrough()
-            }
-            | prompt
-            | llm
-        )
+        context = format_docs(docs)
 
-        response = rag_chain.invoke(question)
+        prompt = ChatPromptTemplate.from_template("""
+    You are an internal support assistant.
+
+    Answer the question ONLY using the information provided in the context.
+    If the answer is not present in the context, say:
+    "Não encontrei essa informação nos procedimentos internos."
+
+    Context:
+    {context}
+
+    Question:
+    {question}
+    """)
+
+        response = llm.invoke(
+            prompt.format(
+                context=context,
+                question=question
+            )
+        )
         logger.info("Resposta gerada com sucesso")
         return response.content
     except Exception:
