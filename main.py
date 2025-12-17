@@ -15,6 +15,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGener
 from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.documents import Document
+from langchain_core.exceptions import LangChainException
 
 logging.basicConfig(
     level=logging.INFO,
@@ -151,9 +152,9 @@ Question:
         )
         logger.info("Response generated successfully")
         return response.content
-    except Exception:
-        logger.exception("Error executing RAG chain")
-        return None
+    except LangChainException as e:
+      logger.error("LLM quota or generation error: %s", e)
+      return "The AI service is temporarily unavailable due to usage limits. Please try again later."
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
