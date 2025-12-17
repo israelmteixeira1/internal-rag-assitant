@@ -95,6 +95,10 @@ def index_pdf(pdf_path: str, embeddings_instance: GoogleGenerativeAIEmbeddings) 
         logger.exception("Error during chunking")
         return None
 
+    if not split_texts:
+        logger.critical("No chunks generated from PDF")
+        return None
+
     try:
         chroma_db = Chroma.from_documents(
             split_texts,
@@ -108,13 +112,14 @@ def index_pdf(pdf_path: str, embeddings_instance: GoogleGenerativeAIEmbeddings) 
         logger.exception("Error creating embeddings or persisting to Chroma")
         return None
 
-def query_rag(question: str) -> Optional[str]:
+
+def query_rag(question: str) -> str:
     """Executa a consulta RAG e retorna a resposta."""
     logger.info("Received question: %s", question)
 
     if db is None or llm is None:
         logger.error("RAG services (DB/LLM) not initialized.")
-        return None
+        return "Internal error: service unavailable."
 
     try:
         retriever = db.as_retriever(
@@ -125,7 +130,10 @@ def query_rag(question: str) -> Optional[str]:
         logger.info("Retrieved %d relevant chunks", len(docs))
     except Exception:
         logger.exception("Error retrieving documents")
-        return None
+        return "Error retrieving internal documents."
+
+    if not docs:
+        return "I couldn't find this information in the internal procedures."
 
     try:
         context = format_docs(docs)
@@ -133,8 +141,12 @@ def query_rag(question: str) -> Optional[str]:
         prompt = ChatPromptTemplate.from_template("""
 You are an internal support assistant.
 
-Answer the question ONLY using the information provided in the context.
-If the answer is not present in the context, say:
+You MUST answer strictly and exclusively using the information present in the context below.
+Do NOT use prior knowledge.
+Do NOT make assumptions.
+Do NOT invent information.
+
+If the answer is not explicitly present in the context, reply exactly with:
 "I couldn't find this information in the internal procedures."
 
 Context:
@@ -249,7 +261,8 @@ async def ask_question(request: QuestionRequest):
             detail={"error": "Empty or invalid question"}
         )
     
-    answer = query_rag(request.question.strip())
+    question = normalize_text(request.question.strip())
+    answer = query_rag(question)
     
     # Tratamento de erro interno
     if answer is None:
