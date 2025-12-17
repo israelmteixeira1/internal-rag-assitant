@@ -185,7 +185,7 @@ async def lifespan(app: FastAPI):
     
     # 3. Inicializar LLM
     try:
-        llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.2)
+        llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.2, request_timeout=20)
         logger.info("LLM initialized successfully")
     except Exception:
         logger.critical("Failed to initialize LLM. Check your credentials.")
