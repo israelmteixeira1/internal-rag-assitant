@@ -123,8 +123,12 @@ def query_rag(question: str) -> str:
 
     try:
         retriever = db.as_retriever(
-            search_type="similarity",
-            search_kwargs={"k": 8}
+            search_type="mmr",
+            search_kwargs={
+                "k": 8, 
+                "fetch_k": 20,
+                "lambda_mult": 0.5
+            }
         )
         docs = retriever.invoke(question)
         logger.info("Retrieved %d relevant chunks", len(docs))
