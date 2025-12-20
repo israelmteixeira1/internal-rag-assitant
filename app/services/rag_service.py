@@ -14,6 +14,11 @@ logger = logging.getLogger("query_rag")
 def format_docs(docs: List[Document]) -> str:
     return "\n\n".join(doc.page_content for doc in docs)
 
+def format_for_slack(text: str) -> str:
+    text = text.replace(". ", ".\n\n")
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    return "\n\n".join(lines)
+
 def query_rag(question: str) -> str:
     if state.db is None or state.llm is None:
         return "Erro interno: serviço indisponível."
@@ -57,7 +62,7 @@ Question:
                 question=question
             )
         )
-        return response.content
+        return format_for_slack(response.content)
     except LangChainException as e:
         logger.error("Erro no LLM: %s", e)
         return "O serviço de IA está temporariamente indisponível devido a limites de uso."
