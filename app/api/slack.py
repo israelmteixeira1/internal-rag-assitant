@@ -15,7 +15,7 @@ async def slack_command(
 ):
     """
     Endpoint para Slash Command do Slack.
-    Envia placeholder imediato e depois envia a resposta final via response_url.
+    Exibe a pergunta enviada e depois envia a resposta final via response_url.
     """
 
     logger.info("Requisição recebida do Slack")
@@ -23,7 +23,7 @@ async def slack_command(
 
     placeholder_response = {
         "response_type": "ephemeral",
-        "text": "🤖 Processando sua pergunta..."
+        "text": f"*Pergunta:* {text}\n\n🤖 Processando sua resposta..."
     }
 
     async def send_final_response():
@@ -32,7 +32,7 @@ async def slack_command(
         async with httpx.AsyncClient() as client:
             await client.post(response_url, json={
                 "response_type": "ephemeral",
-                "text": resposta_final
+                "text": f"*Pergunta:* {text}\n*Resposta:* {resposta_final}"
             })
         logger.info("Resposta final enviada com sucesso")
 
