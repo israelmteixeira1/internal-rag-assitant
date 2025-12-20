@@ -27,7 +27,7 @@ async def slack_command(
     }
 
     async def send_final_response():
-        resposta_final = await query_rag(text)
+        resposta_final = query_rag(text)
         logger.info("Resposta final da RAG pronta, enviando ao Slack")
         async with httpx.AsyncClient() as client:
             await client.post(response_url, json={
