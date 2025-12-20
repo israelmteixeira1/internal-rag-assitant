@@ -4,6 +4,7 @@ from app.core.lifespan import lifespan
 from app.schemas import AnswerResponse, QuestionRequest
 from app.services.rag_service import query_rag
 from app.utils.text_utils import normalize_text
+from app.api.slack import router as slack_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -17,7 +18,7 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
-
+app.include_router(slack_router)
 
 @app.post("/ask", response_model=AnswerResponse)
 async def ask_question(request: QuestionRequest):
