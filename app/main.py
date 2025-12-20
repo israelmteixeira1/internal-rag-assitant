@@ -1,7 +1,7 @@
 import logging
 from fastapi import FastAPI, HTTPException
 from app.core.lifespan import lifespan
-from app.schemas import HealthResponse, AnswerResponse, QuestionRequest
+from app.schemas import AnswerResponse, QuestionRequest
 from app.services.rag_service import query_rag
 from app.utils.text_utils import normalize_text
 
@@ -13,19 +13,11 @@ logger = logging.getLogger("main")
 
 app = FastAPI(
     title="RAG Assistant API",
-    description="API for querying internal procedures using RAG",
+    description="API para consultar procedimentos internos usando RAG",
     version="1.0.0",
     lifespan=lifespan
 )
 
-
-@app.get("/health", response_model=HealthResponse)
-async def health_check():
-    """
-    Health check endpoint.
-    Retorna status da API.
-    """
-    return HealthResponse(status="ok")
 
 @app.post("/ask", response_model=AnswerResponse)
 async def ask_question(request: QuestionRequest):
@@ -34,26 +26,24 @@ async def ask_question(request: QuestionRequest):
     Recebe uma pergunta e retorna a resposta baseada nos procedimentos internos.
     """
     if not request.question or not request.question.strip():
-        logger.warning("Empty or invalid question received")
+        logger.warning("Pergunta vazia ou inválida recebida")
         raise HTTPException(
             status_code=400,
-            detail={"error": "Empty or invalid question"}
+            detail={"error": "Pergunta vazia ou inválida"}
         )
     
     question = normalize_text(request.question.strip())
     answer = query_rag(question)
     
-    # Tratamento de erro interno
     if answer is None:
-        logger.error("Failed to generate response")
+        logger.error("Falha ao gerar a resposta")
         raise HTTPException(
             status_code=500,
-            detail={"error": "Internal error while generating response"}
+            detail={"error": "Erro interno ao gerar a resposta"}
         )
     
     return AnswerResponse(answer=answer)
 
-# Execução direta (desenvolvimento)
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

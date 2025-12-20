@@ -17,5 +17,5 @@ def normalize_text(text: str) -> str:
         text = re.sub(r'[ \t]+', ' ', text)
         return text.strip()
     except Exception:
-        logger.exception("Error normalizing text")
+        logger.exception("Erro na normalização do texto")
         return text

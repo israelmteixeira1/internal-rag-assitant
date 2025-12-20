@@ -16,25 +16,25 @@ logger = logging.getLogger("index_pdf")
 
 def index_pdf(pdf_path: str, embeddings_instance: GoogleGenerativeAIEmbeddings) -> Optional[Chroma]:
     """Indexa um PDF e retorna a instância do Chroma DB."""
-    logger.info("Starting PDF indexing: %s", pdf_path)
+    logger.info("Iniciando indexação do PDF: %s", pdf_path)
 
     if not os.path.exists(pdf_path):
-        logger.error("PDF file not found: %s", pdf_path)
+        logger.error("Arquivo PDF não encontrado: %s", pdf_path)
         return None
 
     try:
         loader = PyPDFLoader(pdf_path)
         documents = loader.load()
-        logger.info("PDF loaded with %d pages", len(documents))
+        logger.info("PDF carregado com %d páginas", len(documents))
     except Exception:
-        logger.exception("Error loading PDF")
+        logger.exception("Erro ao carregar o PDF")
         return None
 
     try:
         for doc in documents:
             doc.page_content = normalize_text(doc.page_content)
     except Exception:
-        logger.exception("Error normalizing documents")
+        logger.exception("Erro ao normalizar os documentos")
         return None
 
     try:
@@ -43,13 +43,13 @@ def index_pdf(pdf_path: str, embeddings_instance: GoogleGenerativeAIEmbeddings) 
             chunk_overlap=100
         )
         split_texts = text_splitter.split_documents(documents)
-        logger.info("Documents split into %d chunks", len(split_texts))
+        logger.info("Documentos divididos em %d blocos", len(split_texts))
     except Exception:
-        logger.exception("Error during chunking")
+        logger.exception("Erro durante a divisão dos blocos")
         return None
 
     if not split_texts:
-        logger.critical("No chunks generated from PDF")
+        logger.critical("Nenhum bloco gerado a partir do PDF")
         return None
 
     try:
@@ -59,8 +59,8 @@ def index_pdf(pdf_path: str, embeddings_instance: GoogleGenerativeAIEmbeddings) 
             persist_directory="./chroma_db",
             collection_name="internal_procedures"
         )
-        logger.info("Indexing completed successfully")
+        logger.info("Indexação concluída com sucesso")
         return chroma_db
     except Exception:
-        logger.exception("Error creating embeddings or persisting to Chroma")
+        logger.exception("Erro ao criar embeddings ou persistir no Chroma")
         return None

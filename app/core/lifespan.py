@@ -32,22 +32,22 @@ async def lifespan(app: FastAPI):
 
     # 1. Carregar variáveis de ambiente
     load_dotenv()
-    logger.info("Environment variables loaded")
+    logger.info("Variáveis de ambiente carregadas")
     
     # 2. Inicializar Embeddings
     try:
         state.embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
-        logger.info("Embeddings initialized successfully")
+        logger.info("Embeddings inicializados com sucesso")
     except Exception:
-        logger.critical("Failed to initialize Embeddings. Check your credentials.")
+        logger.critical("Falha ao inicializar os Embeddings. Verifique suas credenciais.")
         raise
     
     # 3. Inicializar LLM
     try:
         state.llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.2, request_timeout=20)
-        logger.info("LLM initialized successfully")
+        logger.info("LLM inicializado com sucesso")
     except Exception:
-        logger.critical("Failed to initialize LLM. Check your credentials.")
+        logger.critical("Falha ao inicializar o LLM. Verifique suas credenciais.")
         raise
     
     # 4. Carregar ou criar Chroma DB
@@ -59,20 +59,20 @@ async def lifespan(app: FastAPI):
                 collection_name="internal_procedures",
                 embedding_function=state.embeddings
             )
-            logger.info("Chroma DB loaded from disk successfully")
+            logger.info("Chroma DB carregado do disco com sucesso")
         except Exception:
-            logger.warning("Error loading Chroma DB. Attempting to reindex...")
+            logger.warning("Erro ao carregar Chroma DB. Tentando reindexar...")
             state.db = index_pdf("procedures.pdf", state.embeddings)
     else:
-        logger.info("Chroma DB not found. Indexing PDF...")
+        logger.info("Chroma DB não encontrado. Indexando PDF...")
         state.db = index_pdf("procedures.pdf", state.embeddings)
     
     if state.db is None:
-        logger.critical("Critical failure during indexing. Application cannot start.")
-        raise RuntimeError("Failed to initialize Chroma DB")
+        logger.critical("Falha crítica durante a indexação. A aplicação não pode iniciar.")
+        raise RuntimeError("Falha ao inicializar Chroma DB")
     
-    logger.info("RAG API ready to receive requests")
+    logger.info("API RAG pronta para receber requisições")
     
     yield
     
-    logger.info("Shutting down RAG API")
+    logger.info("Encerrando API RAG")

@@ -16,7 +16,7 @@ def format_docs(docs: List[Document]) -> str:
 
 def query_rag(question: str) -> str:
     if state.db is None or state.llm is None:
-        return "Internal error: service unavailable."
+        return "Erro interno: serviço indisponível."
 
     retriever = state.db.as_retriever(
         search_type="mmr",
@@ -30,7 +30,7 @@ def query_rag(question: str) -> str:
     docs = retriever.invoke(question)
     
     if not docs:
-        return "I couldn't find this information in the internal procedures."
+        return "Não consegui encontrar essa informação nos procedimentos internos."
 
     prompt = ChatPromptTemplate.from_template("""
 You are an internal support assistant.
@@ -59,5 +59,5 @@ Question:
         )
         return response.content
     except LangChainException as e:
-        logger.error("LLM error: %s", e)
-        return "The AI service is temporarily unavailable due to usage limits."
+        logger.error("Erro no LLM: %s", e)
+        return "O serviço de IA está temporariamente indisponível devido a limites de uso."
