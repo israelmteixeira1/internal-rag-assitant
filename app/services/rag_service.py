@@ -5,7 +5,11 @@ from langchain_core.documents import Document
 from langchain_core.exceptions import LangChainException
 from app.core import state
 
-logger = logging.getLogger("format_docs")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s"
+)
+logger = logging.getLogger("query_rag")
 
 def format_docs(docs: List[Document]) -> str:
     return "\n\n".join(doc.page_content for doc in docs)
